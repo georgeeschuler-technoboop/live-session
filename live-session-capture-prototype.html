@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Session Capture · Prototype</title>
+<!--
+  Live Session Capture — feel-test prototype
+  Connecting for Change LLC
+
+  Changelog
+  v0.3 — 2026-06-11. Added the Console (backstage facilitator cockpit) as the
+         third view: run-of-show rail with step advance, attributed firehose,
+         deterministic tagging (cluster = a set of response ids, Principle 1),
+         quiet-contributor flags, spotlight selection, Wall controls, a live
+         scaled Wall preview (presenter view), and CSV export. Locked the
+         Electric gradient as default; switcher retained for reference.
+  v0.2 — 2026-06-11. Re-grounded on the real Beyond the Map token system;
+         participant confirmation/waiting state; gradient switcher.
+  v0.1 — 2026-06-11. First pass (superseded).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --c-navy:#0d0f1a; --c-navy-2:#161827; --c-navy-3:#1f2236;
+    --c-paper:#f4efe6; --c-paper-2:#ebe4d6; --c-paper-3:#ddd3bd;
+    --c-ink:#14161f; --c-muted:#6b6c78; --c-muted-2:#9a9caf;
+    --c-line:#d8d0bf; --c-line-dark:#2a2d42;
+    --c-indigo:#2825BE; --c-indigo-2:#4a47d4; --c-indigo-lum:#6d4ff0;
+    --c-amber:#EB9001; --c-teal:#0C7A7A; --c-terra:#CF4C38;
+    --grad-cover:linear-gradient(135deg,#4f3fe6 0%,#6d4ff0 45%,#a07bff 100%);
+    --glow-indigo:radial-gradient(ellipse at 78% 18%, rgba(123,107,255,0.20), transparent 60%);
+    --font-display:"Barlow Condensed",sans-serif;
+    --font-body:"IBM Plex Sans",sans-serif;
+    --font-mono:"IBM Plex Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100vh;background:var(--c-paper);color:var(--c-ink);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+
+  .demobar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 22px;background:var(--c-navy);border-bottom:1px solid var(--c-line-dark)}
+  .demobar .tag{font-family:var(--font-mono);font-size:10px;color:#7d86b8;border:1px solid var(--c-line-dark);border-radius:2px;padding:4px 8px;letter-spacing:.12em}
+  .seg{display:inline-flex;border:1px solid var(--c-line-dark);border-radius:2px;overflow:hidden;background:var(--c-navy-2)}
+  .seg button{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:#9aa3cf;border:0;padding:8px 14px;cursor:pointer;transition:all .15s}
+  .seg button.on{background:var(--c-indigo);color:#fff}
+  .seg button.on.warn{background:var(--c-terra)}
+  .demobar .spacer{flex:1}
+  .demobar .note{font-family:var(--font-mono);font-size:10.5px;color:#5a6498;letter-spacing:.05em}
+  .demobar .glabel-d{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;color:#566092;text-transform:uppercase}
+
+  .screen{display:none}
+  .screen.on{display:block}
+  .grad{background:var(--grad-cover);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+  /* ===== PARTICIPANT ===== */
+  #participant{min-height:calc(100vh - 46px);display:flex;justify-content:center;align-items:flex-start;padding:36px 18px 70px}
+  .device{width:100%;max-width:430px;background:var(--c-paper);border:1px solid var(--c-line);border-radius:4px;overflow:hidden;box-shadow:0 18px 50px rgba(13,15,26,.18)}
+  .device-top{background:var(--c-navy);color:var(--c-paper);padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+  .device-brand{display:flex;align-items:baseline;gap:11px}
+  .device-brand .nm{font-family:var(--font-display);font-weight:800;font-size:17px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+  .device-brand .sub{font-family:var(--font-mono);font-size:9.5px;color:var(--c-muted-2);letter-spacing:.12em;text-transform:uppercase}
+  .device-code{font-family:var(--font-mono);font-size:10px;color:var(--c-muted-2);letter-spacing:.1em}
+  .device-body{padding:26px 24px 30px}
+  .step-marker{display:inline-block;font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--c-paper);background:var(--c-indigo);padding:5px 11px;border-radius:2px;margin-bottom:18px}
+  .p-prompt{font-family:var(--font-display);font-weight:700;font-size:30px;line-height:1.04;letter-spacing:.01em;color:var(--c-ink);margin-bottom:10px}
+  .p-help{font-size:14px;color:var(--c-muted);line-height:1.55;margin-bottom:22px;font-style:italic}
+  .quiet{margin:4px 0;border:1px dashed var(--c-line);background:var(--c-paper-2);border-radius:3px;padding:24px 18px;text-align:center;color:var(--c-muted)}
+  .quiet b{display:block;font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--c-ink);margin-bottom:5px}
+  .field-label{display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--c-muted);margin-bottom:9px}
+  input.p-input{width:100%;font-family:var(--font-body);font-size:15px;color:var(--c-ink);background:var(--c-paper-2);border:1px solid var(--c-line);border-radius:2px;padding:13px 14px}
+  .p-input:focus{outline:none;border-color:var(--c-indigo);background:#fff}
+  .poll-opts{display:flex;flex-direction:column;gap:8px}
+  .poll-opt{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:2px;border:1px solid var(--c-line);background:var(--c-paper-2);cursor:pointer;font-size:14.5px;color:var(--c-ink);transition:all .12s}
+  .poll-opt .ring{width:15px;height:15px;border-radius:50%;border:2px solid var(--c-muted-2);flex:none}
+  .poll-opt:hover{background:#fff}
+  .poll-opt.sel{border-color:var(--c-indigo);background:#fff}
+  .poll-opt.sel .ring{border-color:var(--c-indigo);background:var(--c-indigo);box-shadow:inset 0 0 0 3px #fff}
+  .btn-grad{margin-top:20px;width:100%;border:0;border-radius:2px;cursor:pointer;color:#fff;background:var(--grad-cover);font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:15px;transition:filter .15s,transform .1s}
+  .btn-grad:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+  .btn-grad:disabled{opacity:.4;cursor:default;filter:saturate(.4)}
+  .p-sent{margin-top:18px;border-top:1px solid var(--c-line);padding-top:16px}
+  .p-sent .mini{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--c-muted);text-transform:uppercase;margin-bottom:9px}
+  .sent-chip{display:flex;gap:9px;align-items:flex-start;background:var(--c-paper-2);border:1px solid var(--c-line);border-left:3px solid var(--c-indigo);border-radius:2px;padding:11px 13px;font-size:13.5px;color:var(--c-ink);margin-bottom:8px}
+  .sent-chip .ok{color:var(--c-indigo);font-weight:700;flex:none}
+  .p-change{margin-top:4px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:2px;padding:8px 13px;cursor:pointer}
+  .p-change:hover{border-color:var(--c-ink);color:var(--c-ink)}
+  .p-wait{margin-top:13px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;color:var(--c-muted-2)}
+  .p-wait::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c-indigo);opacity:.55;flex:none}
+  .device-foot{padding:14px;border-top:1px solid var(--c-line);display:flex;flex-direction:column;gap:8px;align-items:center}
+  .device-foot .row{display:flex;gap:8px;justify-content:center}
+  .device-foot button{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:2px;padding:8px 13px;cursor:pointer}
+  .device-foot button:disabled{opacity:.4;cursor:default}
+  .demo-cap{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--c-muted-2)}
+
+  /* ===== WALL (full) ===== */
+  #wall{min-height:calc(100vh - 46px);display:flex;flex-direction:column}
+  .fac{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 24px;background:var(--c-navy-2);border-bottom:1px solid var(--c-line-dark)}
+  .fac .grp{display:inline-flex;align-items:center;gap:8px}
+  .fac .glabel{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;color:#566092;text-transform:uppercase}
+  .fac .lock{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:#6f78a6;text-transform:uppercase}
+  .fac .spacer{flex:1}
+  .wall-surface{position:relative;flex:1;overflow:hidden;background:var(--c-navy);border-bottom:4px solid transparent;border-image:var(--grad-cover) 1;padding:32px 44px 46px}
+  .wall-surface::before{content:"";position:absolute;inset:0;background:var(--glow-indigo);pointer-events:none}
+  .wall-inner{position:relative}
+  .wall-head{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+  .wall-eyebrow{display:flex;align-items:center;gap:10px}
+  .wall-eyebrow .swatch{width:10px;height:10px;border-radius:2px;background:var(--c-indigo)}
+  .wall-eyebrow .lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:#a59bff;text-transform:uppercase}
+  .wall-count{margin-left:auto;display:flex;align-items:center;gap:9px;font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--c-muted-2);text-transform:uppercase}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--c-indigo-lum);box-shadow:0 0 0 0 rgba(123,107,255,.6);animation:pulse 2.4s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(123,107,255,.55)}70%{box-shadow:0 0 0 12px rgba(123,107,255,0)}100%{box-shadow:0 0 0 0 rgba(123,107,255,0)}}
+  .wall-prompt{font-family:var(--font-display);font-weight:800;font-size:clamp(30px,4.3vw,50px);line-height:1.02;letter-spacing:-.005em;text-transform:uppercase;color:var(--c-paper);max-width:21ch;margin-bottom:6px}
+  .wall-sub{font-size:14px;color:var(--c-muted-2);margin-bottom:26px}
+  .collecting{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:50px 0;text-align:center}
+  .collecting .bignum{font-family:var(--font-display);font-weight:800;font-size:128px;line-height:1;background:var(--grad-cover);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 34px rgba(123,107,255,.45))}
+  .collecting .clbl{font-family:var(--font-mono);font-size:12px;letter-spacing:.2em;color:var(--c-muted-2);text-transform:uppercase}
+  .collecting .hint{font-size:13px;color:#5a6498;max-width:36ch;line-height:1.5}
+  .drops{display:grid;grid-template-columns:repeat(auto-fill,minmax(282px,1fr));gap:14px;align-content:start}
+  .drop{position:relative;background:var(--c-navy-3);border:1px solid rgba(123,107,255,.18);border-radius:3px;padding:15px 17px;font-size:14.5px;line-height:1.42;color:#e7e3d8;overflow:hidden}
+  .drop .who{display:block;margin-top:9px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;color:#7b83b8;text-transform:uppercase}
+  .drop.bloom{animation:bloom .9s cubic-bezier(.2,.7,.3,1) both}
+  .drop.bloom::after{content:"";position:absolute;inset:-2px;border-radius:4px;pointer-events:none;background:radial-gradient(130px 90px at 28% 0%, rgba(123,107,255,.5), transparent 70%);animation:fade 1.2s ease-out forwards}
+  @keyframes bloom{0%{opacity:0;transform:translateY(8px) scale(.97);box-shadow:0 0 44px rgba(123,107,255,.7)}100%{opacity:1;transform:none;box-shadow:0 0 0 rgba(0,0,0,0)}}
+  @keyframes fade{from{opacity:1}to{opacity:0}}
+  .poll-wall{display:flex;flex-direction:column;gap:14px;max-width:720px}
+  .pw-row{display:grid;grid-template-columns:230px 1fr 44px;align-items:center;gap:16px}
+  .pw-name{font-size:15px;color:#d7d2c6}
+  .pw-track{height:16px;background:var(--c-navy-3);border-radius:2px;overflow:hidden}
+  .pw-fill{height:100%;border-radius:2px;background:var(--grad-cover);box-shadow:0 0 16px rgba(123,107,255,.4);width:0;transition:width .9s cubic-bezier(.2,.7,.3,1)}
+  .pw-val{font-family:var(--font-mono);font-size:13px;color:var(--c-muted-2);text-align:right}
+  .pw-top .pw-name{color:#fff;font-weight:600}
+  .spot{display:flex;flex-direction:column;gap:20px;max-width:920px}
+  .spot-line{position:relative;padding:22px 26px;border-radius:3px;background:rgba(31,34,54,.6);border:1px solid rgba(123,107,255,.24)}
+  .spot-line p{font-family:var(--font-display);font-weight:700;font-size:clamp(20px,2.4vw,30px);line-height:1.16;color:var(--c-paper);text-transform:uppercase;letter-spacing:.005em}
+  .spot-src{margin-top:13px;display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.13em;color:#a59bff;text-transform:uppercase;border:1px solid rgba(123,107,255,.34);border-radius:2px;padding:4px 11px}
+  .spot-note{font-size:12.5px;color:#5a6498;max-width:60ch;font-style:italic;line-height:1.5}
+  .empty{color:#4f598a;font-size:14px;padding:30px 0}
+  .act{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;background:transparent;color:var(--c-indigo-lum);border:1px solid var(--c-line-dark);border-radius:2px;padding:8px 13px;cursor:pointer}
+  .act:hover{border-color:var(--c-indigo-lum)}
+
+  /* ===== CONSOLE ===== */
+  #console{min-height:calc(100vh - 46px);display:flex;flex-direction:column;background:var(--c-paper)}
+  .con-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;background:var(--c-navy);border-bottom:1px solid var(--c-line-dark);position:sticky;top:46px;z-index:40}
+  .con-toolbar .now{display:flex;flex-direction:column;gap:2px}
+  .con-toolbar .now .k{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;color:#566092;text-transform:uppercase}
+  .con-toolbar .now .v{font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--c-paper);text-transform:uppercase;letter-spacing:.01em;line-height:1}
+  .con-toolbar .glabel{font-family:var(--font-mono);font-size:9px;letter-spacing:.13em;color:#566092;text-transform:uppercase}
+  .con-adv{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;background:var(--grad-cover);color:#fff;border:0;border-radius:2px;padding:9px 15px;cursor:pointer}
+  .con-adv:hover{filter:brightness(1.08)}
+  .con-toolbar .spacer{flex:1}
+  .con-grid{display:grid;grid-template-columns:248px 1fr 320px;gap:0;flex:1;min-height:0}
+  @media (max-width:1080px){.con-grid{grid-template-columns:1fr}}
+  .con-col{padding:18px 18px 40px;overflow-y:auto}
+  .con-left{background:var(--c-paper-2);border-right:1px solid var(--c-line)}
+  .con-right{background:var(--c-paper-2);border-left:1px solid var(--c-line)}
+  .panel{margin-bottom:24px}
+  .panel h4{font-family:var(--font-display);font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .panel .ph{font-size:11.5px;color:var(--c-muted);font-style:italic;line-height:1.45;margin-bottom:11px}
+
+  .ros{list-style:none}
+  .ros li{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:2px;cursor:pointer;border-left:3px solid transparent;margin-bottom:2px}
+  .ros li:hover{background:var(--c-paper-3)}
+  .ros li.on{background:var(--c-navy);border-left-color:var(--c-indigo-lum)}
+  .ros li.on .r-lbl{color:var(--c-paper)}
+  .ros li.on .r-sub{color:var(--c-muted-2)}
+  .ros li.done .r-num{color:var(--c-teal)}
+  .ros .r-num{font-family:var(--font-mono);font-size:10px;color:var(--c-muted);flex:none;width:18px;padding-top:2px}
+  .ros .r-lbl{font-family:var(--font-display);font-weight:700;font-size:15px;line-height:1.1;letter-spacing:.01em}
+  .ros .r-sub{font-size:11px;color:var(--c-muted);margin-top:1px}
+
+  .flag{display:flex;gap:9px;align-items:flex-start;background:#fff;border:1px solid var(--c-line);border-left:3px solid var(--c-amber);border-radius:2px;padding:9px 11px;margin-bottom:7px}
+  .flag .fwho{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--c-ink);text-transform:uppercase;font-weight:500}
+  .flag .fsnip{font-size:11.5px;color:var(--c-muted);line-height:1.35;margin-top:2px}
+  .flag .fbtn{margin-left:auto;align-self:center;font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;background:transparent;border:1px solid var(--c-line);border-radius:2px;padding:5px 8px;cursor:pointer;color:var(--c-muted);white-space:nowrap}
+  .flag .fbtn:hover{border-color:var(--c-teal);color:var(--c-teal)}
+  .flag-empty{font-size:12px;color:var(--c-muted);font-style:italic}
+
+  .fh-search{width:100%;background:var(--c-paper-2);border:1px solid var(--c-line);border-radius:2px;padding:10px 12px;font-family:var(--font-body);font-size:13.5px;margin-bottom:14px}
+  .fh-search:focus{outline:none;border-color:var(--c-indigo);background:#fff}
+  .fh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:11px}
+  .fh-drop{background:#fff;border:1px solid var(--c-line);border-radius:3px;padding:12px 13px;display:flex;flex-direction:column;gap:8px}
+  .fh-drop.spot{border-color:var(--c-indigo);box-shadow:0 0 0 1px var(--c-indigo)}
+  .fh-row1{display:flex;align-items:center;gap:7px}
+  .fh-who{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--c-ink);font-weight:500}
+  .fh-sub{width:6px;height:6px;border-radius:50%;background:var(--c-teal);flex:none}
+  .fh-clbadge{margin-left:auto;font-family:var(--font-mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:10px;color:#fff}
+  .fh-text{font-size:13px;line-height:1.4;color:var(--c-ink)}
+  .fh-row2{display:flex;align-items:center;gap:6px;margin-top:1px}
+  .fh-tag{flex:1;font-family:var(--font-body);font-size:11.5px;background:var(--c-paper-2);border:1px solid var(--c-line);border-radius:2px;padding:5px 7px;color:var(--c-ink)}
+  .fh-tag:focus{outline:none;border-color:var(--c-indigo)}
+  .fh-star{font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;background:transparent;border:1px solid var(--c-line);border-radius:2px;padding:5px 8px;cursor:pointer;color:var(--c-muted);white-space:nowrap}
+  .fh-star.on{background:var(--c-indigo);border-color:var(--c-indigo);color:#fff}
+  .fh-passive{color:var(--c-muted);font-size:13.5px;font-style:italic;padding:26px 4px;line-height:1.5;border:1px dashed var(--c-line);border-radius:3px;text-align:center}
+
+  .cl-add{display:flex;gap:6px;margin-bottom:12px}
+  .cl-add input{flex:1;background:#fff;border:1px solid var(--c-line);border-radius:2px;padding:8px 10px;font-family:var(--font-body);font-size:13px}
+  .cl-add input:focus{outline:none;border-color:var(--c-indigo)}
+  .cl-add button{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--c-navy);color:var(--c-paper);border:0;border-radius:2px;padding:8px 11px;cursor:pointer}
+  .cluster{background:#fff;border:1px solid var(--c-line);border-radius:3px;padding:11px 12px;margin-bottom:9px}
+  .cluster .ctop{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .cluster .cdot{width:11px;height:11px;border-radius:3px;flex:none}
+  .cluster .cname{font-family:var(--font-display);font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.02em}
+  .cluster .ccount{margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--c-muted)}
+  .cluster .cdel{background:transparent;border:0;color:var(--c-muted-2);cursor:pointer;font-size:14px;line-height:1}
+  .cluster .cdel:hover{color:var(--c-terra)}
+  .cluster .cmem{list-style:none;border-top:1px dashed var(--c-line);padding-top:7px;margin-top:2px}
+  .cluster .cmem li{font-size:11.5px;color:var(--c-muted);line-height:1.35;padding:2px 0;display:flex;gap:6px}
+  .cluster .cmem li .who{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--c-ink);flex:none}
+  .cl-empty{font-size:12px;color:var(--c-muted);font-style:italic}
+  .provenance{font-size:11px;color:var(--c-muted);font-style:italic;line-height:1.5;border-left:2px solid var(--c-indigo);padding-left:10px;margin-top:6px}
+
+  /* wall preview (scaled) */
+  .prev-frame{background:var(--c-navy);border:1px solid var(--c-line-dark);border-radius:3px;overflow:hidden;position:relative}
+  .prev-bar{display:flex;align-items:center;gap:7px;padding:6px 10px;background:#070b1d;border-bottom:1px solid var(--c-line-dark)}
+  .prev-bar .pdot{width:7px;height:7px;border-radius:50%;background:var(--c-indigo-lum)}
+  .prev-bar .plbl{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.12em;color:#7d86b8;text-transform:uppercase}
+  .prev-body{position:relative;padding:14px 14px 16px;min-height:150px;background:var(--glow-indigo)}
+  .prev-eyebrow{font-family:var(--font-mono);font-size:8px;letter-spacing:.14em;color:#a59bff;text-transform:uppercase;margin-bottom:6px}
+  .prev-prompt{font-family:var(--font-display);font-weight:800;font-size:17px;line-height:1.05;text-transform:uppercase;color:var(--c-paper);margin-bottom:10px}
+  .prev-prompt .grad{font-weight:800}
+  .prev-drops{display:flex;flex-direction:column;gap:5px}
+  .prev-chip{background:var(--c-navy-3);border:1px solid rgba(123,107,255,.18);border-radius:2px;padding:6px 8px;font-size:9.5px;line-height:1.3;color:#e7e3d8}
+  .prev-chip .who{font-family:var(--font-mono);font-size:7px;letter-spacing:.1em;color:#7b83b8;text-transform:uppercase;display:block;margin-top:3px}
+  .prev-big{font-family:var(--font-display);font-weight:800;font-size:56px;line-height:1;text-align:center;background:var(--grad-cover);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;padding:14px 0 6px}
+  .prev-held{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;color:var(--c-muted-2);text-transform:uppercase;text-align:center}
+  .prev-pbar{display:grid;grid-template-columns:1fr 26px;gap:7px;align-items:center;margin-bottom:5px}
+  .prev-pbar .nm{font-size:9px;color:#d7d2c6}
+  .prev-pbar .tk{height:8px;background:var(--c-navy-3);border-radius:2px;overflow:hidden;grid-column:1 / -1}
+  .prev-pbar .fl{height:100%;background:var(--grad-cover)}
+  .prev-pbar .vv{font-family:var(--font-mono);font-size:9px;color:var(--c-muted-2)}
+  .prev-spot{background:rgba(31,34,54,.6);border:1px solid rgba(123,107,255,.24);border-radius:2px;padding:9px 10px;margin-bottom:6px;font-family:var(--font-display);font-weight:700;font-size:12px;line-height:1.18;text-transform:uppercase;color:var(--c-paper)}
+  .prev-passive{font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;color:var(--c-muted-2);text-transform:uppercase;text-align:center;padding:30px 0}
+  .con-attn{font-size:11px;color:var(--c-muted);line-height:1.5;margin-top:10px}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--c-navy);color:var(--c-paper);padding:10px 18px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:1000}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  @media (prefers-reduced-motion: reduce){.drop.bloom,.drop.bloom::after,.live-dot{animation:none}.pw-fill{transition:none}}
+  @media (max-width:720px){.wall-surface{padding:22px 18px 34px}.pw-row{grid-template-columns:120px 1fr 38px;gap:10px}.pw-name{font-size:13px}}
+</style>
+</head>
+<body>
+
+<div class="demobar">
+  <span class="tag">DEMO</span>
+  <div class="seg" id="persp">
+    <button data-view="participant" class="on">Participant</button>
+    <button data-view="wall">Wall</button>
+    <button data-view="console">Console</button>
+  </div>
+  <span class="glabel-d">Gradient</span>
+  <div class="seg" id="gradSeg">
+    <button data-grad="subtle">Subtle</button>
+    <button data-grad="electric" class="on">Electric</button>
+    <button data-grad="wide">Electric+</button>
+  </div>
+  <div class="spacer"></div>
+  <span class="note">Beyond the Map sibling · fake data · Part 1</span>
+</div>
+
+<!-- ============ PARTICIPANT ============ -->
+<section id="participant" class="screen on">
+  <div class="device">
+    <div class="device-top">
+      <div class="device-brand"><span class="nm">LIVE <span class="grad">SESSION</span></span><span class="sub">C4C</span></div>
+      <span class="device-code">RWL-2026</span>
+    </div>
+    <div class="device-body" id="pBody"></div>
+    <div class="device-foot">
+      <div class="row"><button id="pPrev">‹ Prev prompt</button><button id="pNext">Next prompt ›</button></div>
+      <div class="demo-cap">demo · simulates the facilitator advancing the room</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WALL ============ -->
+<section id="wall" class="screen">
+  <div class="fac">
+    <div class="grp"><span class="glabel">Phase</span>
+      <div class="seg" id="phaseSeg"><button data-phase="collecting">Collecting</button><button data-phase="revealing" class="on">Revealing</button></div>
+    </div>
+    <div class="grp"><span class="glabel">View</span>
+      <div class="seg" id="viewSeg"><button data-wview="drops" class="on">Drops</button><button data-wview="poll">Poll</button><button data-wview="spotlight">Spotlight</button></div>
+    </div>
+    <button class="act" id="simBtn">+ Simulate drop</button>
+    <div class="spacer"></div>
+    <span class="lock" id="wallAttnLbl">&#128274; Attribution hidden</span>
+  </div>
+  <div class="wall-surface"><div class="wall-inner" id="wallInner"></div></div>
+</section>
+
+<!-- ============ CONSOLE ============ -->
+<section id="console" class="screen">
+  <div class="con-toolbar">
+    <div class="now"><span class="k">Live step</span><span class="v" id="conNow">—</span></div>
+    <button class="con-adv" id="advBtn">Advance ▸</button>
+    <span class="glabel">Phase</span>
+    <div class="seg" id="conPhaseSeg"><button data-phase="collecting">Collecting</button><button data-phase="revealing" class="on">Revealing</button></div>
+    <span class="glabel">Wall</span>
+    <div class="seg" id="conViewSeg"><button data-wview="drops" class="on">Drops</button><button data-wview="poll">Poll</button><button data-wview="spotlight">Spotlight</button></div>
+    <div class="seg" id="attnSeg"><button data-attn="off" class="on">Names off wall</button><button data-attn="on">Names on</button></div>
+    <div class="spacer"></div>
+    <button class="act" id="csvBtn">Export CSV</button>
+  </div>
+  <div class="con-grid">
+    <aside class="con-col con-left">
+      <div class="panel"><h4>Run of show</h4><p class="ph">Click to jump, or Advance. Every phone and the Wall follow this.</p><ul class="ros" id="rosList"></ul></div>
+      <div class="panel"><h4>Quiet contributors</h4><p class="ph">Dropped something substantive, not yet heard aloud. Pure rule, no model.</p><div id="flagsPanel"></div></div>
+    </aside>
+    <main class="con-col con-center">
+      <input class="fh-search" id="fhSearch" placeholder="Search responses…">
+      <div id="firehose"></div>
+    </main>
+    <aside class="con-col con-right">
+      <div class="panel"><h4>Clusters</h4><p class="ph">A cluster is nothing but a set of these responses. Assign by hand below.</p>
+        <div class="cl-add"><input id="clName" placeholder="New cluster name"><button id="clAdd">Add</button></div>
+        <div id="clustersPanel"></div>
+        <div class="provenance" id="provNote"></div>
+      </div>
+      <div class="panel"><h4>Wall preview</h4><p class="ph">Exactly what the room sees. Screen-share this; drive from here.</p>
+        <div class="prev-frame"><div class="prev-bar"><span class="pdot"></span><span class="plbl">Shared screen</span></div><div class="prev-body" id="wallPreview"></div></div>
+        <div class="con-attn" id="conAttnNote"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== data ===================== */
+var PROMPTS = [
+  {kind:'quiet', label:'Quiet think · 2 min', text:'Who actually shapes whether your project moves forward?', help:'Not the stakeholder list. The people who actually shape it.'},
+  {kind:'poll', label:'Zoom poll', text:'Where do your projects most often get stuck?', help:'Pick one.', options:['Internal alignment','Community trust','Decision-making','Cross-agency coordination','Funding / resources','Other']},
+  {kind:'text', label:'Chat-storm', text:'Your project in one sentence.', help:'Plain language. One line.', accent:'one sentence'},
+  {kind:'text', label:'Chat-storm', text:'Name one person whose role would surprise the formal plan.', help:'A real mover. Not who is on the org chart.', accent:'surprise'}
+];
+
+var FAKE_DROPS = [
+  {t:"Stormwater retrofit stalls at council. The mover is the clerk who sets the agenda order.", who:"Dana R."},
+  {t:"Aquifer recharge pilot across three districts. Everyone calls one retired engineer before any vote.", who:"Marcus T."},
+  {t:"Lead service line outreach. The real broker is a school nurse the families actually trust.", who:"Priya S."},
+  {t:"Tribal water-rights comms. A county GIS tech controls the maps everyone cites.", who:"Sam K."},
+  {t:"Drought contingency adoption. The irrigation district's billing supervisor quietly shapes it.", who:"Rosa M."},
+  {t:"Watershed coalition funding. A program officer's assistant screens every proposal first.", who:"Tom B."},
+  {t:"Reuse permitting. The state reviewer's longtime admin decides what gets read this month.", who:"Lena P."},
+  {t:"Levee setback plan. A local rancher everyone defers to in the room, named nowhere on paper.", who:"Joel A."},
+  {t:"Rate-case timeline. The PUC scheduler decides which hearings happen before the budget closes.", who:"Nadia F."},
+  {t:"Source-water protection. A retired teacher runs the email list the whole valley reads.", who:"Wes D."}
+];
+var POLL = [
+  {name:'Cross-agency coordination', v:16},{name:'Community trust', v:14},{name:'Internal alignment', v:11},
+  {name:'Funding / resources', v:9},{name:'Decision-making', v:7},{name:'Other', v:3}
+];
+var RUNOFSHOW = [
+  {label:'Framing', sub:'You set the working stance', type:'talk'},
+  {label:'Quiet think', sub:'Who actually shapes it', type:'quiet'},
+  {label:'Zoom poll', sub:'Where projects get stuck', type:'poll'},
+  {label:'Chat-storm', sub:'The surprising person', type:'chatstorm'},
+  {label:'Debrief', sub:'What we just saw', type:'talk'}
+];
+var CL_COLORS = ['#2825BE','#0C7A7A','#CF4C38','#EB9001','#7a4fbb','#4a7a3a'];
+
+/* ===================== state ===================== */
+var dropSeq = 0;
+function mkDrop(t, who, self){ return {id:'d'+(++dropSeq), t:t, who:who, bloom:false, self:!!self, cluster:null, spotlight:false}; }
+var liveDrops = FAKE_DROPS.map(function(d){ return mkDrop(d.t, d.who, false); });
+var clusters = [];
+var spokenMap = {};
+var phase = 'revealing', wview = 'drops', attnOnWall = false;
+var activeStep = 3;            // chat-storm
+var pIndex = 2, pSent = [], pollPick = null;
+var fhQuery = '';
+
+/* pre-seed two clusters so the cockpit reads alive */
+(function seedClusters(){
+  var c1 = {id:'c1', label:'Administrative gatekeepers', color:CL_COLORS[0]};
+  var c2 = {id:'c2', label:'Trusted outsiders', color:CL_COLORS[1]};
+  clusters.push(c1, c2);
+  // assign by id-position (deterministic)
+  liveDrops[0].cluster='c1'; liveDrops[8].cluster='c1'; liveDrops[6].cluster='c1';
+  liveDrops[1].cluster='c2'; liveDrops[2].cluster='c2'; liveDrops[9].cluster='c2';
+})();
+
+/* ===================== helpers ===================== */
+var toastEl = document.getElementById('toast'); var toastT;
+function toast(m){ toastEl.textContent=m; toastEl.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(function(){toastEl.classList.remove('show');},1500); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m];}); }
+function clusterById(id){ return clusters.find(function(c){return c.id===id;})||null; }
+function accentize(text, accent){ return accent ? text.replace(accent, '<span class="grad">'+accent+'</span>') : text; }
+
+/* ===================== PARTICIPANT ===================== */
+var pBody = document.getElementById('pBody');
+function renderParticipant(){
+  var p = PROMPTS[pIndex];
+  var answered = pSent.find(function(s){return s.idx===pIndex;});
+  var inner = '<div class="step-marker">Part 1 · '+p.label+'</div><div class="p-prompt">'+accentize(p.text,p.accent)+'</div><div class="p-help">'+p.help+'</div>';
+  if(p.kind==='quiet'){
+    inner += '<div class="quiet"><b>Don\'t type yet.</b>Just think. The screen at the front is doing the talking.</div>';
+  } else if(answered){
+    inner += '<div class="p-sent"><div class="mini">Your answer is in</div><div class="sent-chip"><span class="ok">&#10003;</span><span>'+esc(answered.value)+'</span></div><button class="p-change" id="pChange">Change my answer</button><div class="p-wait">Waiting for the facilitator to move the room on\u2026</div></div>';
+  } else if(p.kind==='poll'){
+    inner += '<div class="poll-opts">'+p.options.map(function(o,i){return '<div class="poll-opt '+(pollPick===i?'sel':'')+'" data-opt="'+i+'"><span class="ring"></span>'+o+'</div>';}).join('')+'</div><button class="btn-grad" id="pSubmit" '+(pollPick===null?'disabled':'')+'>Submit answer</button>';
+  } else {
+    var person = p.accent==='surprise';
+    inner += '<label class="field-label">'+(person?'The person':'One sentence')+'</label><input class="p-input" id="pField" placeholder="'+(person?'e.g. the clerk who sets the agenda order':'Your project in one sentence')+'"><button class="btn-grad" id="pSubmit" disabled>Add to the wall</button>';
+  }
+  pBody.innerHTML = inner;
+  wireParticipant(p, answered);
+}
+function wireParticipant(p, answered){
+  if(answered){
+    var ch=document.getElementById('pChange');
+    if(ch) ch.addEventListener('click',function(){
+      pSent=pSent.filter(function(s){return s.idx!==pIndex;});
+      liveDrops=liveDrops.filter(function(d){return !(d.self && d.pidx===pIndex);});
+      pollPick=null; renderParticipant(); refreshRoom();
+    });
+    return;
+  }
+  if(p.kind==='poll'){
+    pBody.querySelectorAll('.poll-opt').forEach(function(el){el.addEventListener('click',function(){pollPick=+el.dataset.opt;renderParticipant();});});
+    var sb=document.getElementById('pSubmit');
+    if(sb) sb.addEventListener('click',function(){pSent.push({idx:pIndex,value:p.options[pollPick]});renderParticipant();});
+  } else if(p.kind==='text'){
+    var f=document.getElementById('pField'), sb2=document.getElementById('pSubmit');
+    f.addEventListener('input',function(){sb2.disabled=f.value.trim().length<3;});
+    sb2.addEventListener('click',function(){
+      var v=f.value.trim(); if(v.length<3) return;
+      pSent.push({idx:pIndex,value:v});
+      var nd=mkDrop(v,'You',true); nd.pidx=pIndex; liveDrops.unshift(nd);
+      renderParticipant(); refreshRoom();
+    });
+  }
+}
+document.getElementById('pPrev').addEventListener('click',function(){if(pIndex>0){pIndex--;pollPick=null;renderParticipant();syncStepper();}});
+document.getElementById('pNext').addEventListener('click',function(){if(pIndex<PROMPTS.length-1){pIndex++;pollPick=null;renderParticipant();syncStepper();}});
+function syncStepper(){document.getElementById('pPrev').disabled=pIndex===0;document.getElementById('pNext').disabled=pIndex===PROMPTS.length-1;}
+
+/* ===================== WALL (full) ===================== */
+var wallInner = document.getElementById('wallInner');
+function renderWall(){
+  var head = '<div class="wall-head"><div class="wall-eyebrow"><span class="swatch"></span><span class="lbl">Part 1 · See Your System</span></div><div class="wall-count"><span class="live-dot"></span>'+liveDrops.length+' responses in</div></div><div class="wall-prompt">Name one person whose role would <span class="grad">surprise</span> the formal plan.</div><div class="wall-sub">'+(attnOnWall?'Showing names. ':'Drops are anonymous on the wall. ')+'The facilitator sees who said what.</div>';
+  var body='';
+  if(phase==='collecting'){
+    body = '<div class="collecting"><div class="clbl">Collecting</div><div class="bignum">'+liveDrops.length+'</div><div class="clbl">responses in, held back</div><div class="hint">Nothing is shown to the room yet. Reveal when you are ready, so the pattern lands in the debrief and not before.</div></div>';
+  } else if(wview==='drops'){
+    body = liveDrops.length ? '<div class="drops">'+liveDrops.map(function(d){return '<div class="drop '+(d.bloom?'bloom':'')+'">'+esc(d.t)+(attnOnWall?'<span class="who">'+esc(d.who)+'</span>':'')+'</div>';}).join('')+'</div>' : '<div class="empty">No drops yet.</div>';
+    setTimeout(function(){liveDrops.forEach(function(d){d.bloom=false;});},950);
+  } else if(wview==='poll'){
+    var mx=Math.max.apply(null,POLL.map(function(p){return p.v;}));
+    body = '<div class="poll-wall">'+POLL.map(function(p,i){return '<div class="pw-row '+(i===0?'pw-top':'')+'"><div class="pw-name">'+p.name+'</div><div class="pw-track"><div class="pw-fill" data-w="'+Math.round(p.v/mx*100)+'"></div></div><div class="pw-val">'+p.v+'</div></div>';}).join('')+'</div>';
+  } else {
+    var sp = liveDrops.filter(function(d){return d.spotlight;});
+    body = sp.length ? '<div class="spot">'+sp.map(function(d){return '<div class="spot-line"><p>'+esc(d.t)+'</p><span class="spot-src">&#9679; sourced &middot; '+(attnOnWall?esc(d.who):'participant')+'</span></div>';}).join('')+'<div class="spot-note">Every line on the wall is one participant\'s own record. Nothing here is text the tool wrote.</div></div>' : '<div class="empty">No spotlight selected. Star responses in the Console.</div>';
+  }
+  wallInner.innerHTML = head + body;
+  document.getElementById('wallAttnLbl').innerHTML = attnOnWall ? '&#128275; Names showing' : '&#128274; Attribution hidden';
+  if(wview==='poll' && phase==='revealing'){ requestAnimationFrame(function(){wallInner.querySelectorAll('.pw-fill').forEach(function(f){f.style.width=f.dataset.w+'%';});}); }
+}
+var simPtr=0;
+document.getElementById('simBtn').addEventListener('click',function(){
+  var d=FAKE_DROPS[simPtr%FAKE_DROPS.length]; simPtr++;
+  var nd=mkDrop(d.t,d.who,false); nd.bloom=(phase!=='collecting'); liveDrops.unshift(nd);
+  refreshRoom();
+});
+
+/* ===================== CONSOLE ===================== */
+function renderConsole(){ renderROS(); renderFirehose(); renderClusters(); renderFlags(); renderPreview(); syncControls(); document.getElementById('conNow').textContent = RUNOFSHOW[activeStep].label; }
+
+function renderROS(){
+  var el=document.getElementById('rosList');
+  el.innerHTML = RUNOFSHOW.map(function(s,i){
+    var cls='ros'; // placeholder
+    var liCls = (i===activeStep?'on':'') + (i<activeStep?' done':'');
+    return '<li class="'+liCls+'" data-i="'+i+'"><span class="r-num">'+(i+1)+'</span><span><span class="r-lbl">'+esc(s.label)+'</span><span class="r-sub">'+esc(s.sub)+'</span></span></li>';
+  }).join('');
+  el.querySelectorAll('li').forEach(function(li){ li.addEventListener('click',function(){ activeStep=+li.dataset.i; renderConsole(); }); });
+}
+document.getElementById('advBtn').addEventListener('click',function(){ if(activeStep<RUNOFSHOW.length-1){activeStep++; renderConsole();} else toast('End of run of show'); });
+
+function fhDropsForStep(){
+  var t=RUNOFSHOW[activeStep].type;
+  if(t!=='chatstorm') return null;
+  var q=fhQuery.trim().toLowerCase();
+  return liveDrops.filter(function(d){ return !q || d.t.toLowerCase().indexOf(q)>=0 || d.who.toLowerCase().indexOf(q)>=0; });
+}
+function renderFirehose(){
+  var host=document.getElementById('firehose');
+  var step=RUNOFSHOW[activeStep];
+  var search=document.getElementById('fhSearch');
+  if(step.type==='chatstorm'){
+    search.style.display='';
+    var ds=fhDropsForStep();
+    if(!ds.length){ host.innerHTML='<div class="fh-passive">No responses match.</div>'; return; }
+    var clOpts=function(d){ return '<option value="">— no cluster —</option>'+clusters.map(function(c){return '<option value="'+c.id+'" '+(d.cluster===c.id?'selected':'')+'>'+esc(c.label)+'</option>';}).join(''); };
+    host.innerHTML='<div class="fh-grid">'+ds.map(function(d){
+      var c=clusterById(d.cluster);
+      var badge=c?'<span class="fh-clbadge" style="background:'+c.color+'">'+esc(c.label)+'</span>':'';
+      return '<div class="fh-drop '+(d.spotlight?'spot':'')+'" data-id="'+d.id+'">'
+        +'<div class="fh-row1"><span class="fh-sub" title="substantive"></span><span class="fh-who">'+esc(d.who)+'</span>'+badge+'</div>'
+        +'<div class="fh-text">'+esc(d.t)+'</div>'
+        +'<div class="fh-row2"><select class="fh-tag" data-id="'+d.id+'">'+clOpts(d)+'</select>'
+        +'<button class="fh-star '+(d.spotlight?'on':'')+'" data-id="'+d.id+'">'+(d.spotlight?'★ spotlight':'☆ spotlight')+'</button></div>'
+        +'</div>';
+    }).join('')+'</div>';
+    host.querySelectorAll('.fh-tag').forEach(function(sel){ sel.addEventListener('change',function(){ var d=liveDrops.find(function(x){return x.id===sel.dataset.id;}); if(d){ d.cluster=sel.value||null; renderClusters(); renderFirehose(); refreshRoom(); } }); });
+    host.querySelectorAll('.fh-star').forEach(function(b){ b.addEventListener('click',function(){ var d=liveDrops.find(function(x){return x.id===b.dataset.id;}); if(!d) return; if(!d.spotlight && liveDrops.filter(function(x){return x.spotlight;}).length>=3){ toast('Spotlight holds 3'); return; } d.spotlight=!d.spotlight; renderFirehose(); refreshRoom(); }); });
+  } else {
+    search.style.display='none';
+    if(step.type==='poll'){
+      var mx=Math.max.apply(null,POLL.map(function(p){return p.v;}));
+      host.innerHTML='<div class="fh-passive" style="text-align:left;border-style:solid;">Poll results (read aloud, do not analyze yet).<div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">'+POLL.map(function(p){return '<div style="display:grid;grid-template-columns:1fr 30px;gap:8px;align-items:center;"><div style="font-style:normal;color:var(--c-ink);font-size:13px;">'+p.name+'<div style="height:7px;background:var(--c-paper-3);border-radius:2px;margin-top:3px;overflow:hidden;"><div style="height:100%;width:'+Math.round(p.v/mx*100)+'%;background:var(--grad-cover);"></div></div></div><div style="font-family:var(--font-mono);font-size:12px;color:var(--c-muted);">'+p.v+'</div></div>';}).join('')+'</div></div>';
+    } else if(step.type==='quiet'){
+      host.innerHTML='<div class="fh-passive">Quiet think. Phones show the prompt and "don\'t type yet." No input this step. Hold the silence.</div>';
+    } else {
+      host.innerHTML='<div class="fh-passive">You\'re speaking. Phones show "eyes on the shared screen." This is a talking step, no participant input.</div>';
+    }
+  }
+}
+document.getElementById('fhSearch').addEventListener('input',function(e){ fhQuery=e.target.value; renderFirehose(); });
+
+function renderClusters(){
+  var host=document.getElementById('clustersPanel');
+  if(!clusters.length){ host.innerHTML='<div class="cl-empty">No clusters yet. Name one above, then assign responses to it.</div>'; document.getElementById('provNote').textContent=''; return; }
+  host.innerHTML = clusters.map(function(c){
+    var mem=liveDrops.filter(function(d){return d.cluster===c.id;});
+    var memHtml = mem.length ? '<ul class="cmem">'+mem.map(function(d){return '<li><span class="who">'+esc(d.who)+'</span><span>'+esc(d.t)+'</span></li>';}).join('')+'</ul>' : '';
+    return '<div class="cluster"><div class="ctop"><span class="cdot" style="background:'+c.color+'"></span><span class="cname">'+esc(c.label)+'</span><span class="ccount">'+mem.length+'</span><button class="cdel" data-id="'+c.id+'" title="remove">&times;</button></div>'+memHtml+'</div>';
+  }).join('');
+  host.querySelectorAll('.cdel').forEach(function(b){ b.addEventListener('click',function(){ var id=b.dataset.id; liveDrops.forEach(function(d){if(d.cluster===id)d.cluster=null;}); clusters=clusters.filter(function(c){return c.id!==id;}); renderClusters(); renderFirehose(); refreshRoom(); }); });
+  var tagged=liveDrops.filter(function(d){return d.cluster;}).length;
+  document.getElementById('provNote').textContent = 'Provenance: '+tagged+' of '+liveDrops.length+' responses assigned. Each cluster above is just the set of records in it, traceable to a named participant.';
+}
+document.getElementById('clAdd').addEventListener('click',addCluster);
+document.getElementById('clName').addEventListener('keydown',function(e){ if(e.key==='Enter'){e.preventDefault();addCluster();} });
+function addCluster(){
+  var inp=document.getElementById('clName'); var name=inp.value.trim(); if(!name){toast('Name the cluster');return;}
+  var id='c'+(clusters.length+1)+'_'+Math.random().toString(36).slice(2,5);
+  clusters.push({id:id,label:name,color:CL_COLORS[clusters.length%CL_COLORS.length]});
+  inp.value=''; inp.focus(); renderClusters(); renderFirehose();
+}
+
+function renderFlags(){
+  var host=document.getElementById('flagsPanel');
+  var seen={}, list=[];
+  liveDrops.forEach(function(d){ if(d.who==='You')return; if(!spokenMap[d.who] && !seen[d.who]){ seen[d.who]=1; list.push(d); } });
+  if(!list.length){ host.innerHTML='<div class="flag-empty">Everyone substantive has been heard.</div>'; return; }
+  host.innerHTML=list.map(function(d){ return '<div class="flag"><div><div class="fwho">'+esc(d.who)+'</div><div class="fsnip">'+esc(d.t.slice(0,64))+(d.t.length>64?'…':'')+'</div></div><button class="fbtn" data-who="'+esc(d.who)+'">Mark heard</button></div>'; }).join('');
+  host.querySelectorAll('.fbtn').forEach(function(b){ b.addEventListener('click',function(){ spokenMap[b.dataset.who]=true; renderFlags(); }); });
+}
+
+function renderPreview(){
+  var el=document.getElementById('wallPreview');
+  var step=RUNOFSHOW[activeStep];
+  var note=document.getElementById('conAttnNote');
+  var eyebrow='<div class="prev-eyebrow">Part 1 · '+esc(step.label)+'</div>';
+  if(step.type==='quiet'){ el.innerHTML=eyebrow+'<div class="prev-prompt">Who actually <span class="grad">shapes</span> it?</div><div class="prev-passive">Don\'t type yet</div>'; note.textContent='Quiet-think step. Phones say "just think."'; return; }
+  if(step.type==='talk'){ el.innerHTML=eyebrow+'<div class="prev-passive">Facilitator speaking</div>'; note.textContent='Talking step. No participant input.'; return; }
+  if(step.type==='poll'){
+    var mx=Math.max.apply(null,POLL.map(function(p){return p.v;}));
+    el.innerHTML=eyebrow+'<div class="prev-prompt" style="font-size:14px;">Where do projects get <span class="grad">stuck?</span></div>'+POLL.slice(0,4).map(function(p){return '<div class="prev-pbar"><div class="nm">'+p.name+'</div><div class="vv">'+p.v+'</div><div class="tk"><div class="fl" style="width:'+Math.round(p.v/mx*100)+'%"></div></div></div>';}).join('');
+    note.textContent='Poll step.'; return;
+  }
+  // chatstorm
+  var promptHtml='<div class="prev-prompt">Name one whose role would <span class="grad">surprise</span> the plan.</div>';
+  if(phase==='collecting'){ el.innerHTML=eyebrow+promptHtml+'<div class="prev-big">'+liveDrops.length+'</div><div class="prev-held">Held back</div>'; note.textContent='Collecting. The room sees only a count.'; return; }
+  if(wview==='poll'){ var mx2=Math.max.apply(null,POLL.map(function(p){return p.v;})); el.innerHTML=eyebrow+POLL.slice(0,4).map(function(p){return '<div class="prev-pbar"><div class="nm">'+p.name+'</div><div class="vv">'+p.v+'</div><div class="tk"><div class="fl" style="width:'+Math.round(p.v/mx2*100)+'%"></div></div></div>';}).join(''); note.textContent='Showing the poll on the wall.'; return; }
+  if(wview==='spotlight'){ var sp=liveDrops.filter(function(d){return d.spotlight;}); el.innerHTML=eyebrow+(sp.length?sp.map(function(d){return '<div class="prev-spot">'+esc(d.t.slice(0,70))+(d.t.length>70?'…':'')+(attnOnWall?'<div class="prev-held" style="text-align:left;margin-top:5px;">'+esc(d.who)+'</div>':'')+'</div>';}).join(''):'<div class="prev-passive">No spotlight yet</div>'); note.textContent='Spotlighting chosen lines.'; return; }
+  // drops
+  var show=liveDrops.slice(0,5);
+  el.innerHTML=eyebrow+promptHtml+'<div class="prev-drops">'+show.map(function(d){return '<div class="prev-chip">'+esc(d.t.slice(0,72))+(d.t.length>72?'…':'')+(attnOnWall?'<span class="who">'+esc(d.who)+'</span>':'')+'</div>';}).join('')+'</div>';
+  note.textContent = attnOnWall ? 'Names are showing on the wall.' : 'Drops anonymous on the wall (default).';
+}
+
+/* CSV export — the data-as-asset artifact */
+document.getElementById('csvBtn').addEventListener('click',function(){
+  var rows=[['id','participant','response','cluster','spotlight','heard']];
+  liveDrops.forEach(function(d){ var c=clusterById(d.cluster); rows.push([d.id,d.who,d.t,c?c.label:'',d.spotlight?'yes':'',spokenMap[d.who]?'yes':'']); });
+  var csv=rows.map(function(r){return r.map(function(x){return '"'+String(x).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'}); var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='session-responses.csv'; a.click(); URL.revokeObjectURL(url);
+  toast('CSV exported');
+});
+
+/* ===================== shared controls ===================== */
+function syncControls(){
+  document.querySelectorAll('#phaseSeg button, #conPhaseSeg button').forEach(function(b){ var on=b.dataset.phase===phase; b.classList.toggle('on',on); b.classList.toggle('warn', on && phase==='collecting'); });
+  document.querySelectorAll('#viewSeg button, #conViewSeg button').forEach(function(b){ b.classList.toggle('on', b.dataset.wview===wview); });
+  document.querySelectorAll('#attnSeg button').forEach(function(b){ b.classList.toggle('on', (b.dataset.attn==='on')===attnOnWall); });
+}
+function bindSeg(sel, attr, setter){
+  document.querySelectorAll(sel+' button').forEach(function(b){ b.addEventListener('click',function(){ setter(b.dataset[attr]); refreshRoom(); }); });
+}
+bindSeg('#phaseSeg','phase',function(v){phase=v;});
+bindSeg('#conPhaseSeg','phase',function(v){phase=v;});
+bindSeg('#viewSeg','wview',function(v){wview=v;});
+bindSeg('#conViewSeg','wview',function(v){wview=v;});
+document.querySelectorAll('#attnSeg button').forEach(function(b){ b.addEventListener('click',function(){ attnOnWall=(b.dataset.attn==='on'); refreshRoom(); }); });
+
+/* refresh whatever room views are visible */
+function refreshRoom(){
+  syncControls();
+  if(document.getElementById('wall').classList.contains('on')) renderWall();
+  if(document.getElementById('console').classList.contains('on')){ renderFirehose(); renderClusters(); renderFlags(); renderPreview(); }
+}
+
+/* ===================== perspective + gradient ===================== */
+document.querySelectorAll('#persp button').forEach(function(b){ b.addEventListener('click',function(){
+  document.querySelectorAll('#persp button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+  var v=b.dataset.view;
+  document.getElementById('participant').classList.toggle('on',v==='participant');
+  document.getElementById('wall').classList.toggle('on',v==='wall');
+  document.getElementById('console').classList.toggle('on',v==='console');
+  if(v==='wall') renderWall();
+  if(v==='console') renderConsole();
+}); });
+
+var GRADS={subtle:'linear-gradient(135deg,#6d4ff0 0%,#4a47d4 50%,#2825be 100%)',electric:'linear-gradient(135deg,#4f3fe6 0%,#6d4ff0 45%,#a07bff 100%)',wide:'linear-gradient(135deg,#3b6bff 0%,#6a4ff5 50%,#9b6bff 100%)'};
+var GLOWS={subtle:'109,79,240',electric:'123,107,255',wide:'107,123,255'};
+document.querySelectorAll('#gradSeg button').forEach(function(b){ b.addEventListener('click',function(){
+  document.querySelectorAll('#gradSeg button').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+  var g=b.dataset.grad;
+  document.documentElement.style.setProperty('--grad-cover',GRADS[g]);
+  document.documentElement.style.setProperty('--glow-indigo','radial-gradient(ellipse at 78% 18%, rgba('+GLOWS[g]+',0.20), transparent 60%)');
+}); });
+
+/* ===================== init ===================== */
+renderParticipant(); syncStepper(); syncControls();
+</script>
+</body>
+</html>
