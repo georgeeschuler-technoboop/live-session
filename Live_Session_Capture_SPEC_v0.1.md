@@ -1,12 +1,13 @@
-# Live Session Capture — Architecture Spec
+# Beyond the Map: Live Session — Architecture Spec
 
-**Working title.** Naming is an open decision (see §12). For now this document calls it the *tool*.
+**Name.** Resolved: **Beyond the Map: Live Session**, a member of the Beyond the Map family, sibling to the existing Workbook. Earlier drafts called this "the tool" or "Live Session Capture."
 
 **Status:** v0.1 design spec. No code yet. This document exists so the core constraint is on the page before either of us writes a line.
 
 ---
 
 ### Changelog
+- **v0.5 — 2026-06-12.** Locked the product name: Beyond the Map: Live Session, a member of the Beyond the Map family. Updated the title, the name note, and §12 decision 5.
 - **v0.4 — 2026-06-11.** Locked the Electric indigo gradient as the signature token (§14) and recorded why it lives in a brighter band than the flat brand indigo. Added the run-of-show and step-advance model and the Wall-preview presenter-view pairing to the Console (§4.3). Added the one-response-per-prompt confirmation/waiting rule to the participant view (§4.1).
 - **v0.3 — 2026-06-11.** Rewrote §14 against the actual Beyond the Map source. BtM is a warm-paper base with navy hero/canvas panels and a `--grad-cover` gradient signature, not a dark app. This tool inherits that whole system and swaps only the cover gradient to indigo, with amber stepping out of the signature.
 - **v0.2 — 2026-06-11.** Resolved all five open decisions (live-prompt pacing, Wall attribution hidden / Console visible, download handback, new repo, working title). Added §14 visual identity.
@@ -208,7 +209,7 @@ Holding these lines is what keeps it a scalpel.
 2. **Wall attribution default.** Resolved: names hidden on the Wall, visible in the Console. The Part 1 "surprising person" prompt asks people to name a real colleague or official, so the shared screen stays anonymous and the Console keeps full attribution.
 3. **Handback delivery.** Resolved: download for v1. Email delivery via the opt-in tier is a later add.
 4. **Home for the code.** Resolved: a new dedicated repo, reusing the TNN schema patterns.
-5. **Naming.** Working title for now, pending something more robust.
+5. **Naming.** Resolved: **Beyond the Map: Live Session**, a member of the Beyond the Map family, sibling to the existing Workbook (the 7-step homework tool). The existing tool already uses this colon-descriptor pattern ("Beyond the Map: Network Visibility Lab"), so this joins a convention rather than inventing one. The broader scalpel family sits under C4C and Relational Intelligence, since "Beyond the Map" names the mapping-and-moves lineage specifically, not the whole house. Still open: whether to rename the Workbook's "Network Visibility Lab" descriptor to pair more cleanly (for example, "Workbook").
 
 ---
 

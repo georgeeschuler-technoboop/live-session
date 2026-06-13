@@ -3,12 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Session Capture · Prototype</title>
+<title>Beyond the Map: Live Session</title>
 <!--
   Live Session Capture — feel-test prototype
   Connecting for Change LLC
 
   Changelog
+  v0.4 — 2026-06-11. Named: Beyond the Map: Live Session (member of the
+         Beyond the Map family). Wordmark restructured. Shipped as index.html.
   v0.3 — 2026-06-11. Added the Console (backstage facilitator cockpit) as the
          third view: run-of-show rail with step advance, attributed firehose,
          deterministic tagging (cluster = a set of response ids, Principle 1),
@@ -57,7 +59,8 @@
   #participant{min-height:calc(100vh - 46px);display:flex;justify-content:center;align-items:flex-start;padding:36px 18px 70px}
   .device{width:100%;max-width:430px;background:var(--c-paper);border:1px solid var(--c-line);border-radius:4px;overflow:hidden;box-shadow:0 18px 50px rgba(13,15,26,.18)}
   .device-top{background:var(--c-navy);color:var(--c-paper);padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
-  .device-brand{display:flex;align-items:baseline;gap:11px}
+  .device-brand{display:flex;flex-direction:column;gap:2px}
+  .device-brand .fam{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;color:var(--c-muted-2);text-transform:uppercase}
   .device-brand .nm{font-family:var(--font-display);font-weight:800;font-size:17px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
   .device-brand .sub{font-family:var(--font-mono);font-size:9.5px;color:var(--c-muted-2);letter-spacing:.12em;text-transform:uppercase}
   .device-code{font-family:var(--font-mono);font-size:10px;color:var(--c-muted-2);letter-spacing:.1em}
@@ -263,8 +266,8 @@
 <section id="participant" class="screen on">
   <div class="device">
     <div class="device-top">
-      <div class="device-brand"><span class="nm">LIVE <span class="grad">SESSION</span></span><span class="sub">C4C</span></div>
-      <span class="device-code">RWL-2026</span>
+      <div class="device-brand"><span class="fam">Beyond the Map</span><span class="nm">LIVE <span class="grad">SESSION</span></span></div>
+      <span class="device-code">C4C · RWL-2026</span>
     </div>
     <div class="device-body" id="pBody"></div>
     <div class="device-foot">
